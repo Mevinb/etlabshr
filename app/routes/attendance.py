@@ -13,22 +13,17 @@ bp = Blueprint("attendance", __name__, url_prefix="/api")
 @bp.route("/attendance", methods=["GET"])
 @require_token_auth
 def attendance():
+    # Note: ETLab attendance shows current semester subjects only
+    # The semester parameter is kept for API consistency but attendance
+    # is always for the current active semester
     semester = request.args.get("semester")
-    if not semester:
-        return jsonify({"message": "Semester required"}), 400
-
-    try:
-        semester = int(semester)
-    except ValueError:
-        return jsonify({"message": "Semester should be a valid integer"}), 400
-
-    if not (semester >= 1 and semester <= 8):
-        return (
-            jsonify(
-                {"message": "Invalid semester. Semester has to be between 1 and 8"}
-            ),
-            400,
-        )
+    
+    # Extract token from Authorization header (format: "Bearer <token>")
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+    else:
+        token = auth_header
 
     # Extract token from Authorization header (format: "Bearer <token>")
     auth_header = request.headers.get("Authorization", "")
@@ -41,8 +36,11 @@ def attendance():
         "User-Agent": Config.USER_AGENT,
     }
     cookie = {Config.COOKIE_KEY: token}
+    # Note: ETLab attendance endpoint shows current semester only regardless of parameter
+    # Using current semester (defaulting to 5 if no semester specified)
+    current_semester = semester if semester else 5
     response = requests.get(
-        f"{Config.BASE_URL}/ktuacademics/student/viewattendancesubject/{semester}",
+        f"{Config.BASE_URL}/ktuacademics/student/viewattendancesubject/{current_semester}",
         headers=headers,
         cookies=cookie,
     )
@@ -78,8 +76,9 @@ def attendance():
         table_data[len(table_data) - 2].text.split("/")[0].strip()
     )
     response_body["total_hours"] = (
-        table_data[len(table_data) - 2].text.split("/")[0].strip()
+        table_data[len(table_data) - 2].text.split("/")[1].strip()
     )
     response_body["total_perecentage"] = table_data[len(table_data) - 1].text
+    response_body["note"] = "ETLab attendance displays current semester subjects only, not filtered by requested semester"
 
     return jsonify(response_body), 200

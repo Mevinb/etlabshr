@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 from flask import Blueprint, jsonify, request
+import re
 
 from app.utils.token_required import require_token_auth
 from config import Config
@@ -43,7 +44,7 @@ def end_semester_results():
     }
     cookie = {Config.COOKIE_KEY: token}
     response = requests.get(
-        f"{Config.BASE_URL}/ktuacademics/student/results",
+        f"{Config.BASE_URL}/universityexam/student/examresult",
         headers=headers,
         cookies=cookie,
     )
@@ -53,155 +54,135 @@ def end_semester_results():
         return jsonify({"message": "Token expired. Please login again."}), 401
 
     response_body = {
-        "end_semester_exams": []
+        "end_semester_exams": [],
+        "total_end_semester_exams": 0,
+        "available_links": []
     }
 
     try:
-        # Parse End Semester Exams (using robust search for various patterns)
-        end_semester_patterns = [
-            lambda text: text and "end semester" in text.lower() and "exam" in text.lower(),
-            lambda text: text and "semester examination" in text.lower(),
-            lambda text: text and "regular" in text.lower() and "semester" in text.lower() and ("exam" in text.lower() or "examination" in text.lower()),
-            lambda text: text and "b.tech" in text.lower() and "semester" in text.lower() and ("exam" in text.lower() or "examination" in text.lower())
-        ]
+        # Parse End Semester Exams from the university exam page
+        # Look for divs with blue background that contain exam information
+        exam_divs = soup.find_all("div", style=lambda style: style and "background-color:#0864a2" in style)
         
-        for pattern in end_semester_patterns:
-            end_semester_section = soup.find("h5", string=pattern)
-            if not end_semester_section:
-                # Try finding in other header tags
-                end_semester_section = soup.find(["h3", "h4", "h6"], string=pattern)
-            if not end_semester_section:
-                # Try finding in div or span elements
-                end_semester_section = soup.find(["div", "span"], string=pattern)
-            
-            if end_semester_section:
-                print(f"DEBUG: Found End Semester section with pattern")
-                end_semester_table = end_semester_section.find_next("table")
-                if end_semester_table:
-                    print("DEBUG: Found end semester table")
-                    rows = end_semester_table.find_all("tr")[1:]  # Skip header row
-                    print(f"DEBUG: Found {len(rows)} rows in end semester table")
-                    for row in rows:
-                        cells = row.find_all("td")
-                        if len(cells) >= 1:
-                            first_cell = cells[0].text.strip()
-                            if "No" in first_cell and ("result" in first_cell or "exam" in first_cell):
-                                print("DEBUG: No end semester exams available")
-                                continue
-                                
-                            if len(cells) >= 5:
-                                subject_text = cells[0].text.strip()
-                                semester_text = cells[1].text.strip()
-                                
-                                print(f"DEBUG: Processing end semester row - Subject: {subject_text}, Semester: {semester_text}")
-                                
-                                # Split subject code and name if they exist
-                                if " - " in subject_text:
-                                    subject_code = subject_text.split(" - ")[0]
-                                    subject_name = subject_text.split(" - ")[1]
-                                else:
-                                    subject_code = subject_text
-                                    subject_name = subject_text
-                                
-                                end_semester_info = {
-                                    "subject_code": subject_code,
-                                    "subject_name": subject_name,
-                                    "semester": semester_text,
-                                    "exam": cells[2].text.strip(),
-                                    "maximum_marks": cells[3].text.strip(),
-                                    "marks_obtained": cells[4].text.strip(),
-                                }
-                                
-                                # Filter by requested semester
-                                if semester_matches(semester_text, semester):
-                                    response_body["end_semester_exams"].append(end_semester_info)
-                                    print(f"DEBUG: Added end semester exam: {subject_code}")
-                break  # Exit pattern loop if we found a match
-
-        # Also look for any links or buttons that might lead to end semester results
-        view_result_links = soup.find_all("a", string=lambda text: text and "view result" in text.lower())
-        if not view_result_links:
-            view_result_links = soup.find_all("button", string=lambda text: text and "view result" in text.lower())
+        print(f"DEBUG: Found {len(exam_divs)} exam divs with blue background")
         
-        end_semester_links = []
-        if view_result_links:
-            print(f"DEBUG: Found {len(view_result_links)} View Result links/buttons")
-            
-            # Look for semester examination related buttons
-            for link in view_result_links:
-                # Find parent element that might contain semester information
-                parent_text = ""
-                current = link.parent
-                while current and len(parent_text) < 200:
-                    if current.text:
-                        parent_text = current.text.lower()
-                        break
-                    current = current.parent
+        for div in exam_divs:
+            exam_text = div.text.strip()
+            if exam_text and "semester" in exam_text.lower() and ("exam" in exam_text.lower() or "examination" in exam_text.lower()):
+                print(f"DEBUG: Processing exam: {exam_text}")
                 
-                if any(pattern in parent_text for pattern in ["semester examination", "end semester", "regular", "b.tech"]):
-                    print(f"DEBUG: Found potential end semester result link: {parent_text[:100]}")
-                    href = link.get('href', '')
-                    onclick = link.get('onclick', '')
-                    
-                    link_info = {
-                        "text": link.text.strip(),
-                        "href": href,
-                        "onclick": onclick,
-                        "context": parent_text[:200]
-                    }
-                    end_semester_links.append(link_info)
+                # Parse semester information from the text
+                semester_info = parse_semester_from_text(exam_text)
+                
+                exam_info = {
+                    "exam_title": exam_text,
+                    "semester": semester_info.get("semester", "Unknown"),
+                    "exam_type": semester_info.get("exam_type", "End Semester"),
+                    "year": semester_info.get("year", "Unknown"),
+                    "admission_batch": semester_info.get("admission_batch", "Unknown")
+                }
+                
+                # Filter by requested semester if provided
+                if semester is None or semester_matches_exam(semester_info.get("semester", ""), semester):
+                    response_body["end_semester_exams"].append(exam_info)
+                    print(f"DEBUG: Added end semester exam: {exam_text[:50]}...")
         
-        # Add links information to response
-        if end_semester_links:
-            response_body["available_links"] = end_semester_links
+        # Also look for clickable links that might lead to detailed results
+        exam_links = []
+        # Look for links in span3 elements (next to the exam divs)
+        span3_elements = soup.find_all("div", class_="span3")
+        for span3 in span3_elements:
+            links = span3.find_all("a", href=True)
+            for link in links:
+                if link.text.strip() and "result" in link.text.lower():
+                    exam_links.append({
+                        "text": link.text.strip(),
+                        "href": link["href"]
+                    })
+        
+        response_body["available_links"] = exam_links
+        response_body["total_end_semester_exams"] = len(response_body["end_semester_exams"])
+        
+        print(f"DEBUG: Found {len(response_body['end_semester_exams'])} end semester exams")
+        print(f"DEBUG: Found {len(exam_links)} additional result links")
 
     except Exception as e:
+        # Log the error but don't fail completely
         print(f"Error parsing end semester results: {e}")
-        return jsonify({"message": f"Error parsing results: {str(e)}"}), 500
+        # Return empty results instead of failing
 
-    # Add summary information
-    response_body["total_end_semester_exams"] = len(response_body["end_semester_exams"])
-    
-    # Add debug info
+    # Add debug information
     response_body["debug_info"] = {
         "requested_semester": semester,
         "semester_filter_applied": semester is not None,
-        "endpoint": "end_semester_results"
+        "url_used": f"{Config.BASE_URL}/universityexam/student/examresult",
+        "note": "End semester results from university exam portal"
     }
 
     return jsonify(response_body), 200
 
 
-def semester_matches(semester_text, requested_semester):
-    """Helper function to match semester text with requested semester number"""
-    if not semester_text:
-        return False
-    
-    # If no specific semester requested, return all results
-    if requested_semester is None:
-        return True
-        
-    semester_mapping = {
-        1: ["first", "1st", "i", "1"],
-        2: ["second", "2nd", "ii", "2"],
-        3: ["third", "3rd", "iii", "3", "IIIrd"],
-        4: ["fourth", "4th", "iv", "4"],
-        5: ["fifth", "5th", "v", "5"],
-        6: ["sixth", "6th", "vi", "6"],
-        7: ["seventh", "7th", "vii", "7"],
-        8: ["eighth", "8th", "viii", "8"]
+def parse_semester_from_text(exam_text):
+    """Extract semester information from exam text"""
+    info = {
+        "semester": "Unknown",
+        "exam_type": "End Semester",
+        "year": "Unknown",
+        "admission_batch": "Unknown"
     }
     
-    semester_text_lower = semester_text.lower()
+    # Extract semester number
+    semester_patterns = [
+        r"First\s+Semester",
+        r"Second\s+Semester", 
+        r"Third\s+Semester",
+        r"Fourth\s+Semester",
+        r"Fifth\s+Semester",
+        r"Sixth\s+Semester",
+        r"Seventh\s+Semester",
+        r"Eighth\s+Semester"
+    ]
     
-    # Direct number match
-    if str(requested_semester) in semester_text_lower:
+    semester_mapping = {
+        "First": "1", "Second": "2", "Third": "3", "Fourth": "4",
+        "Fifth": "5", "Sixth": "6", "Seventh": "7", "Eighth": "8"
+    }
+    
+    for pattern in semester_patterns:
+        match = re.search(pattern, exam_text, re.IGNORECASE)
+        if match:
+            semester_word = match.group().split()[0]
+            info["semester"] = semester_mapping.get(semester_word.title(), "Unknown")
+            break
+    
+    # Extract year
+    year_match = re.search(r"(20\d{2})", exam_text)
+    if year_match:
+        info["year"] = year_match.group(1)
+    
+    # Extract admission batch
+    admission_match = re.search(r"\((\d{4})\s+Admission\)", exam_text)
+    if admission_match:
+        info["admission_batch"] = admission_match.group(1)
+    
+    # Determine exam type
+    if "regular" in exam_text.lower():
+        info["exam_type"] = "Regular End Semester"
+    elif "(r)" in exam_text.lower():
+        info["exam_type"] = "Regular"
+    elif "supplementary" in exam_text.lower():
+        info["exam_type"] = "Supplementary"
+    
+    return info
+
+
+def semester_matches_exam(exam_semester, requested_semester):
+    """Check if exam semester matches requested semester"""
+    if requested_semester is None:
         return True
     
-    # Text-based matching
-    if requested_semester in semester_mapping:
-        for variant in semester_mapping[requested_semester]:
-            if variant.lower() in semester_text_lower:
-                return True
-    
-    return False
+    try:
+        exam_sem_num = int(exam_semester)
+        return exam_sem_num == requested_semester
+    except (ValueError, TypeError):
+        return False

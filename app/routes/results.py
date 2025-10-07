@@ -251,7 +251,8 @@ def results():
     response_body["debug_info"] = {
         "requested_semester": semester,
         "semester_filter_applied": semester is not None,
-        "sections_found": ["sessional_exams", "module_tests", "class_projects", "assignments", "tutorials"]
+        "sections_found": ["sessional_exams", "module_tests", "class_projects", "assignments", "tutorials"],
+        "note": "ETLab results may show current semester data regardless of requested semester parameter"
     }
 
     return jsonify(response_body), 200
