@@ -11,7 +11,7 @@ def create_app():
 
     app.config.from_object(Config)
 
-    from app.routes import status, login, profile, logout, attendance, timetable, present, absent, results
+    from app.routes import status, login, profile, logout, attendance, timetable, present, absent, results, end_semester_results
 
     app.register_blueprint(status.bp)
     app.register_blueprint(login.bp)
@@ -22,6 +22,7 @@ def create_app():
     app.register_blueprint(present.bp)
     app.register_blueprint(absent.bp)
     app.register_blueprint(results.bp)
+    app.register_blueprint(end_semester_results.bp)
 
     # Add route for web interface
     @app.route('/')

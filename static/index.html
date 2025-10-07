@@ -310,6 +310,7 @@
             <button class="nav-tab active" onclick="switchTab('login')">🔐 Login</button>
             <button class="nav-tab" onclick="switchTab('profile')">👤 Profile</button>
             <button class="nav-tab" onclick="switchTab('results')">📊 Results</button>
+            <button class="nav-tab" onclick="switchTab('endSemesterResults')">🎓 End Semester Results</button>
             <button class="nav-tab" onclick="switchTab('attendance')">📅 Attendance</button>
             <button class="nav-tab" onclick="switchTab('timetable')">🕐 Timetable</button>
             <button class="nav-tab" onclick="switchTab('present')">✅ Mark Present</button>
@@ -373,6 +374,26 @@
             <div id="resultsResponse" class="response-section" style="display: none;">
                 <h3>Exam Results:</h3>
                 <div id="resultsContent" class="response-content"></div>
+            </div>
+        </div>
+
+        <!-- End Semester Results Tab -->
+        <div id="endSemesterResults" class="tab-content">
+            <div class="form-section">
+                <h2>🎓 Get End Semester Results</h2>
+                <p>View your end semester examination results separately from other exam types.</p>
+                
+                <div class="form-group">
+                    <label for="endSemesterInput">Semester (Optional):</label>
+                    <input type="number" id="endSemesterInput" min="1" max="8" placeholder="Enter semester number (1-8) or leave empty for all">
+                </div>
+                
+                <button class="btn" onclick="getEndSemesterResults()">Get End Semester Results</button>
+            </div>
+            
+            <div id="endSemesterResponse" class="response-section" style="display: none;">
+                <h3>End Semester Results:</h3>
+                <div id="endSemesterContent" class="response-content"></div>
             </div>
         </div>
 
@@ -633,6 +654,18 @@
             const semester = document.getElementById('semester').value;
             const response = await makeAPICall(`/results?semester=${semester}`);
             displayResponse('resultsResponse', 'resultsContent', response);
+        }
+
+        // Get end semester results function
+        async function getEndSemesterResults() {
+            if (!authToken) {
+                alert('Please login first');
+                return;
+            }
+
+            const semester = document.getElementById('endSemesterInput').value;
+            const response = await makeAPICall(`/end-semester-results?semester=${semester}`);
+            displayResponse('endSemesterResponse', 'endSemesterContent', response);
         }
 
         // Get attendance function

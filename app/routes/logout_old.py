@@ -1,7 +1,9 @@
 import requests
 from bs4 import BeautifulSoup
+from flasgger import swag_from
 from flask import Blueprint, jsonify, request
 
+from app.docs.swagger import swagger_logout_spec
 from app.utils.token_required import require_token_auth
 from config import Config
 
@@ -11,17 +13,10 @@ bp = Blueprint("logout", __name__, url_prefix="/api")
 @bp.route("/logout", methods=["GET"])
 @require_token_auth
 def logout():
-    # Extract token from Authorization header (format: "Bearer <token>")
-    auth_header = request.headers.get("Authorization", "")
-    if auth_header.startswith("Bearer "):
-        token = auth_header.split(" ")[1]
-    else:
-        token = auth_header
-        
     headers = {
         "User-Agent": Config.USER_AGENT,
     }
-    cookie = {Config.COOKIE_KEY: token}
+    cookie = {Config.COOKIE_KEY: request.headers["Authorization"]}
     response = requests.get(
         f"{Config.BASE_URL}/user/logout",
         headers=headers,

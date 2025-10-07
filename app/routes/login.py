@@ -1,9 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
-from flasgger import swag_from
 from flask import Blueprint, jsonify, request
 
-from app.docs.swagger import swagger_login_spec
 from config import Config
 
 bp = Blueprint("login", __name__, url_prefix="/api")
@@ -11,7 +9,6 @@ session = requests.Session()
 
 
 @bp.route("/login", methods=["POST"])
-@swag_from(swagger_login_spec)
 def login():
     try:
         body = request.get_json()
