@@ -1,13 +1,17 @@
-from flask import Flask
+from flask import Flask, send_from_directory
+from flask_cors import CORS
 from config import Config
 
 
 def create_app():
-    app = Flask(__name__)
+    app = Flask(__name__, static_folder='../static')
+    
+    # Enable CORS for all routes
+    CORS(app)
 
     app.config.from_object(Config)
 
-    from app.routes import status, login, profile, logout, attendance, timetable, present, absent
+    from app.routes import status, login, profile, logout, attendance, timetable, present, absent, results
 
     app.register_blueprint(status.bp)
     app.register_blueprint(login.bp)
@@ -17,5 +21,15 @@ def create_app():
     app.register_blueprint(timetable.bp)
     app.register_blueprint(present.bp)
     app.register_blueprint(absent.bp)
+    app.register_blueprint(results.bp)
+
+    # Add route for web interface
+    @app.route('/')
+    def index():
+        return send_from_directory(app.static_folder, 'index.html')
+    
+    @app.route('/dashboard')
+    def dashboard():
+        return send_from_directory(app.static_folder, 'index.html')
 
     return app

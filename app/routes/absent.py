@@ -45,7 +45,8 @@ def absent():
         return jsonify({"message": "Failed to fetch data"}), 500
 
     soup = BeautifulSoup(response.text, "html.parser")
-    if "login" in soup.title.string.lower():
+    title = soup.find("title")
+    if title and "login" in title.text.lower():
         return jsonify({"message": "Token expired. Please login again."}), 401
 
     try:

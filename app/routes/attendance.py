@@ -43,7 +43,8 @@ def attendance():
         cookies=cookie,
     )
     soup = BeautifulSoup(response.text, "html.parser")
-    if "login" in soup.title.string.lower():
+    title = soup.find("title")
+    if title and "login" in title.text.lower():
         return jsonify({"message": "Token expired. Please login again."}), 401
 
     response_body = {}

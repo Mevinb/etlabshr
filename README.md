@@ -1,12 +1,12 @@
-# RIT Etlab Portal API
+# Sahrdaya Etlab Portal API
 
-Unofficial API for accessing useful data for students from the [RIT Etlab portal](https://rit.etlab.in/user/login). This API allows you to perform actions such as login, logout, view attendance, access timetable, retrieve basic profile information, and more.
+Unofficial API for accessing useful data for students from the [Sahrdaya Etlab portal](https://sahrdaya.etlab.in/user/login). This API allows you to perform actions such as login, logout, view attendance, access timetable, retrieve basic profile information, and more.
 
 > [!NOTE]
-> This API relies on web scraping techniques and may be subject to potential bugs if the structure of the RIT Etlab portal changes.
+> This API relies on web scraping techniques and may be subject to potential bugs if the structure of the Sahrdaya Etlab portal changes.
 
 > [!TIP]
-> Even though this project was made specifically for [RIT Etlab portal](https://rit.etlab.in/user/login), this project could be used for any **Etlab** implementations by making required changes to the `BASE_URL` and `COOKIE_KEY` present in `config.py`
+> Even though this project was adapted for [Sahrdaya Etlab portal](https://sahrdaya.etlab.in/user/login), this project could be used for any **Etlab** implementations by making required changes to the `BASE_URL` and `COOKIE_KEY` present in `config.py`
 
 ## Table of Contents
 

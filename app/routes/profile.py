@@ -24,7 +24,8 @@ def profile():
         cookies=cookie,
     )
     soup = BeautifulSoup(response.text, "html.parser")
-    if "login" in soup.title.string.lower():
+    title = soup.find("title")
+    if title and "login" in title.text.lower():
         return jsonify({"message": "Token expired. Please login again."}), 401
 
     name = soup.find("th", string="Name").find_next("td").get_text(strip=True)
@@ -36,15 +37,11 @@ def profile():
         soup.find("th", string="University Reg No").find_next("td").get_text(strip=True)
     )
 
-    json_repsonse = {
+    # Return profile data at root level for test compatibility
+    return jsonify({
         "name": name,
         "dob": dob,
         "admission_no": admission_no,
-        "university_roll_no": university_roll_no,
-    }
-    return (
-        jsonify(
-            {"message": "Successfully fetched data", "profile_details": json_repsonse}
-        ),
-        200,
-    )
+        "university_reg_no": university_roll_no,
+        "message": "Successfully fetched data"
+    }), 200
