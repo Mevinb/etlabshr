@@ -311,6 +311,7 @@
             <button class="nav-tab" onclick="switchTab('profile')">👤 Profile</button>
             <button class="nav-tab" onclick="switchTab('results')">📊 Results</button>
             <button class="nav-tab" onclick="switchTab('endSemesterResults')">🎓 End Semester Results</button>
+            <button class="nav-tab" onclick="switchTab('academicAnalysis')">📈 Academic Analysis</button>
             <button class="nav-tab" onclick="switchTab('attendance')">📅 Attendance</button>
             <button class="nav-tab" onclick="switchTab('timetable')">🕐 Timetable</button>
             <button class="nav-tab" onclick="switchTab('present')">✅ Mark Present</button>
@@ -394,6 +395,21 @@
             <div id="endSemesterResponse" class="response-section" style="display: none;">
                 <h3>End Semester Results:</h3>
                 <div id="endSemesterContent" class="response-content"></div>
+            </div>
+        </div>
+
+        <!-- Academic Analysis Tab -->
+        <div id="academicAnalysis" class="tab-content">
+            <div class="form-section">
+                <h2>📈 Academic Analysis</h2>
+                <p>View comprehensive academic analysis including semester-wise SGPA, CGPA, attendance, credits, and backlogs information.</p>
+                
+                <button class="btn" onclick="getAcademicAnalysis()">Get Academic Analysis</button>
+            </div>
+            
+            <div id="academicAnalysisResponse" class="response-section" style="display: none;">
+                <h3>Academic Analysis:</h3>
+                <div id="academicAnalysisContent" class="response-content"></div>
             </div>
         </div>
 
@@ -666,6 +682,244 @@
             const semester = document.getElementById('endSemesterInput').value;
             const response = await makeAPICall(`/end-semester-results?semester=${semester}`);
             displayResponse('endSemesterResponse', 'endSemesterContent', response);
+        }
+
+        // Get academic analysis function
+        async function getAcademicAnalysis() {
+            if (!authToken) {
+                alert('Please login first');
+                return;
+            }
+
+            const response = await makeAPICall('/academic-analysis');
+            
+            if (response.success) {
+                displayAcademicAnalysis(response.data);
+            } else {
+                displayResponse('academicAnalysisResponse', 'academicAnalysisContent', response);
+            }
+        }
+
+        // Display academic analysis with custom formatting
+        function displayAcademicAnalysis(data) {
+            const responseDiv = document.getElementById('academicAnalysisResponse');
+            const contentDiv = document.getElementById('academicAnalysisContent');
+            
+            responseDiv.style.display = 'block';
+            
+            const analysisData = data.academic_analysis || {};
+            const semesters = analysisData.semesters || [];
+            const overallStats = analysisData.overall_stats || {};
+            const backlogsInfo = analysisData.backlogs_info || {};
+            
+            let html = '<div class="academic-analysis-container">';
+            
+            // Overall Statistics Section
+            if (Object.keys(overallStats).length > 0 || Object.keys(backlogsInfo).length > 0) {
+                html += '<div class="overall-stats-section">';
+                html += '<h3>🏆 Overall Academic Summary</h3>';
+                html += '<div class="stats-grid">';
+                
+                if (overallStats.overall_cgpa) {
+                    html += `<div class="stat-card"><span class="stat-label">Overall CGPA</span><span class="stat-value">${overallStats.overall_cgpa}</span></div>`;
+                }
+                if (overallStats.overall_cumulative_credit) {
+                    html += `<div class="stat-card"><span class="stat-label">Total Credits</span><span class="stat-value">${overallStats.overall_cumulative_credit}</span></div>`;
+                }
+                if (backlogsInfo.total_backlogs !== undefined) {
+                    html += `<div class="stat-card"><span class="stat-label">Total Backlogs</span><span class="stat-value">${backlogsInfo.total_backlogs}</span></div>`;
+                }
+                if (backlogsInfo.current_backlogs !== undefined) {
+                    html += `<div class="stat-card"><span class="stat-label">Current Backlogs</span><span class="stat-value">${backlogsInfo.current_backlogs}</span></div>`;
+                }
+                
+                html += '</div></div>';
+            }
+            
+            // Semester-wise Data
+            if (semesters.length > 0) {
+                html += '<div class="semesters-section">';
+                html += `<h3>📚 Semester-wise Performance (${semesters.length} semesters)</h3>`;
+                
+                semesters.forEach(semester => {
+                    html += '<div class="semester-card">';
+                    html += `<h4>${semester.semester_name || 'Unknown Semester'}</h4>`;
+                    
+                    html += '<div class="semester-details">';
+                    
+                    // Attendance
+                    if (semester.attendance && semester.attendance.total > 0) {
+                        const attendance = semester.attendance;
+                        html += `<div class="detail-item">
+                            <span class="detail-label">📅 Attendance:</span>
+                            <span class="detail-value">${attendance.present}/${attendance.total} (${attendance.percentage}%)</span>
+                        </div>`;
+                    }
+                    
+                    // Academic metrics
+                    if (semester.sgpa) {
+                        html += `<div class="detail-item">
+                            <span class="detail-label">📈 SGPA:</span>
+                            <span class="detail-value">${semester.sgpa}</span>
+                        </div>`;
+                    }
+                    
+                    if (semester.cgpa) {
+                        html += `<div class="detail-item">
+                            <span class="detail-label">🎯 CGPA:</span>
+                            <span class="detail-value">${semester.cgpa}</span>
+                        </div>`;
+                    }
+                    
+                    if (semester.earned_credit) {
+                        html += `<div class="detail-item">
+                            <span class="detail-label">📚 Earned Credits:</span>
+                            <span class="detail-value">${semester.earned_credit}</span>
+                        </div>`;
+                    }
+                    
+                    if (semester.cumulative_credit) {
+                        html += `<div class="detail-item">
+                            <span class="detail-label">🔢 Cumulative Credits:</span>
+                            <span class="detail-value">${semester.cumulative_credit}</span>
+                        </div>`;
+                    }
+                    
+                    if (semester.result) {
+                        const resultClass = semester.result.toLowerCase().includes('pass') ? 'result-pass' : 
+                                          semester.result.toLowerCase().includes('fail') ? 'result-fail' : '';
+                        html += `<div class="detail-item">
+                            <span class="detail-label">✅ Result:</span>
+                            <span class="detail-value ${resultClass}">${semester.result}</span>
+                        </div>`;
+                    }
+                    
+                    html += '</div></div>';
+                });
+                
+                html += '</div>';
+            } else {
+                html += '<div class="no-data">ℹ️ No semester data available</div>';
+            }
+            
+            html += '</div>';
+            
+            // Add custom CSS for academic analysis
+            html += `
+            <style>
+                .academic-analysis-container {
+                    max-width: 100%;
+                    margin: 0 auto;
+                }
+                
+                .overall-stats-section {
+                    margin-bottom: 30px;
+                    padding: 20px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    border-radius: 10px;
+                    color: white;
+                }
+                
+                .stats-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                    gap: 15px;
+                    margin-top: 15px;
+                }
+                
+                .stat-card {
+                    background: rgba(255, 255, 255, 0.1);
+                    padding: 15px;
+                    border-radius: 8px;
+                    text-align: center;
+                    backdrop-filter: blur(10px);
+                }
+                
+                .stat-label {
+                    display: block;
+                    font-size: 0.9em;
+                    opacity: 0.9;
+                    margin-bottom: 5px;
+                }
+                
+                .stat-value {
+                    display: block;
+                    font-size: 1.5em;
+                    font-weight: bold;
+                }
+                
+                .semesters-section h3 {
+                    color: #333;
+                    border-bottom: 2px solid #667eea;
+                    padding-bottom: 10px;
+                }
+                
+                .semester-card {
+                    background: #f8f9fa;
+                    border: 1px solid #dee2e6;
+                    border-radius: 8px;
+                    padding: 20px;
+                    margin-bottom: 20px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                }
+                
+                .semester-card h4 {
+                    color: #495057;
+                    margin-bottom: 15px;
+                    padding-bottom: 8px;
+                    border-bottom: 1px solid #dee2e6;
+                }
+                
+                .semester-details {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                    gap: 10px;
+                }
+                
+                .detail-item {
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 8px 0;
+                    border-bottom: 1px solid #f1f3f4;
+                }
+                
+                .detail-label {
+                    font-weight: 500;
+                    color: #666;
+                }
+                
+                .detail-value {
+                    font-weight: bold;
+                    color: #333;
+                }
+                
+                .result-pass {
+                    color: #28a745;
+                }
+                
+                .result-fail {
+                    color: #dc3545;
+                }
+                
+                .no-data {
+                    text-align: center;
+                    padding: 40px;
+                    color: #666;
+                    font-style: italic;
+                }
+                
+                @media (max-width: 768px) {
+                    .stats-grid {
+                        grid-template-columns: repeat(2, 1fr);
+                    }
+                    
+                    .semester-details {
+                        grid-template-columns: 1fr;
+                    }
+                }
+            </style>`;
+            
+            contentDiv.innerHTML = html;
         }
 
         // Get attendance function

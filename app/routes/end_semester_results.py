@@ -117,7 +117,11 @@ def end_semester_results():
         for span3 in soup.find_all("div", class_="span3"):
             for link in span3.find_all("a", href=True):
                 if "result" in link.text.lower():
-                    exam_links.append({"text": link.text.strip(), "href": link["href"]})
+                    href = link["href"]
+                    # Convert relative URLs to absolute URLs
+                    if href.startswith("/"):
+                        href = Config.BASE_URL + href
+                    exam_links.append({"text": link.text.strip(), "href": href})
         
         # Scrape each link found
         for link_info in exam_links:

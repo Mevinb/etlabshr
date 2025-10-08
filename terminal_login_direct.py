@@ -290,15 +290,61 @@ class ETLabTerminalDirect:
                             print(f"       📈 Percentage: {percentage:.2f}%")
                             print(f"       📚 Valid Exams: {valid_exams}")
                     
-                    # Check for available links to semester results
+                    # Check for available links to semester results with detailed results
                     available_links = data.get('available_links', [])
                     if available_links:
-                        print(f"\n🔗 Additional End Semester Result Links Found:")
-                        for i, link in enumerate(available_links[:3], 1):
+                        print(f"\n🔗 End Semester Result Details Found ({len(available_links)} exams):")
+                        
+                        for i, link in enumerate(available_links, 1):
                             text = link.get('text', 'N/A')
-                            context = link.get('context', '')[:100]
-                            print(f"   {i}. {text}")
-                            print(f"      Context: {context}...")
+                            results = link.get('results', {})
+                            
+                            print(f"\n   📋 {i}. {text}")
+                            print("   " + "="*50)
+                            
+                            # Display exam details
+                            exam_details = results.get('examDetails', {})
+                            if exam_details:
+                                print(f"   📚 Exam: {exam_details.get('nameOfExam', 'N/A')}")
+                                print(f"   🎓 Degree: {exam_details.get('degree', 'N/A')}")
+                                print(f"   📅 Semester: {exam_details.get('semester', 'N/A')}")
+                                print(f"   📆 Academic Year: {exam_details.get('academicYear', 'N/A')}")
+                                print(f"   🗓️ Month/Year: {exam_details.get('month', 'N/A')} {exam_details.get('year', 'N/A')}")
+                            
+                            # Display subject results
+                            subjects = results.get('results', [])
+                            if subjects:
+                                print(f"\n   📊 Subject Results ({len(subjects)} subjects):")
+                                print("   " + "-"*70)
+                                
+                                for j, subject in enumerate(subjects, 1):
+                                    course_code = subject.get('Course Code', 'N/A')
+                                    course_name = subject.get('Course Name', 'N/A')
+                                    grade = subject.get('Grade', 'N/A')
+                                    credit = subject.get('Credit', 'N/A')
+                                    marks = subject.get('Marks', 'N/A')
+                                    
+                                    print(f"   {j:2d}. {course_code}: {course_name}")
+                                    print(f"       Grade: {grade} | Credit: {credit} | Marks: {marks}")
+                            
+                            # Display summary
+                            summary = results.get('summary', {})
+                            if summary:
+                                print(f"\n   📈 Summary:")
+                                if summary.get('sgpa'):
+                                    print(f"       SGPA: {summary.get('sgpa')}")
+                                if summary.get('cgpa'):
+                                    print(f"       CGPA: {summary.get('cgpa')}")
+                                if summary.get('earnedCredit'):
+                                    print(f"       Earned Credits: {summary.get('earnedCredit')}")
+                            
+                            # Handle errors in results
+                            if results.get('error'):
+                                print(f"   ❌ Error: {results.get('error')}")
+                                print(f"   🔗 URL: {results.get('url', 'N/A')}")
+                            
+                            if i < len(available_links):
+                                print()  # Extra spacing between exams
                     
                     if not end_semester_exams and not available_links:
                         print("ℹ️ No end semester examination results found for the specified criteria")
@@ -313,6 +359,108 @@ class ETLabTerminalDirect:
                     
         except Exception as e:
             print(f"❌ Error getting end semester results: {e}")
+
+    def get_academic_analysis(self):
+        """Get comprehensive academic analysis with semester-wise data"""
+        if not self.token:
+            print("❌ Please login first")
+            return
+        
+        try:
+            print("📊 ACADEMIC ANALYSIS")
+            print("-" * 50)
+            
+            with self.app.test_client() as client:
+                response = client.get('/api/academic-analysis', headers={
+                    'Authorization': f'Bearer {self.token}'
+                })
+                
+                if response.status_code == 200:
+                    data = response.get_json()
+                    print("✅ Academic analysis retrieved successfully!")
+                    
+                    analysis_data = data.get('academic_analysis', {})
+                    semesters = analysis_data.get('semesters', [])
+                    overall_stats = analysis_data.get('overall_stats', {})
+                    backlogs_info = analysis_data.get('backlogs_info', {})
+                    
+                    if semesters:
+                        print(f"\n📚 Semester-wise Academic Performance ({len(semesters)} semesters):")
+                        print("=" * 80)
+                        
+                        for semester in semesters:
+                            print(f"\n🎓 {semester.get('semester_name', 'Unknown Semester')}")
+                            print("-" * 60)
+                            
+                            # Attendance information
+                            attendance = semester.get('attendance', {})
+                            if attendance.get('total', 0) > 0:
+                                print(f"   📅 Attendance: {attendance.get('present', 0)}/{attendance.get('total', 0)} ({attendance.get('percentage', 0)}%)")
+                            
+                            # Academic performance
+                            print(f"   📈 SGPA: {semester.get('sgpa', 'N/A')}")
+                            print(f"   🎯 CGPA: {semester.get('cgpa', 'N/A')}")
+                            print(f"   📚 Earned Credits: {semester.get('earned_credit', 'N/A')}")
+                            print(f"   🔢 Cumulative Credits: {semester.get('cumulative_credit', 'N/A')}")
+                            print(f"   ✅ Result: {semester.get('result', 'N/A')}")
+                        
+                        # Overall statistics
+                        if overall_stats:
+                            print(f"\n🏆 OVERALL ACADEMIC SUMMARY")
+                            print("=" * 50)
+                            if overall_stats.get('overall_cgpa'):
+                                print(f"   🎯 Overall CGPA: {overall_stats.get('overall_cgpa')}")
+                            if overall_stats.get('overall_cumulative_credit'):
+                                print(f"   📚 Total Credits: {overall_stats.get('overall_cumulative_credit')}")
+                        
+                        # Backlogs information
+                        if backlogs_info:
+                            print(f"\n📋 BACKLOGS INFORMATION")
+                            print("=" * 40)
+                            print(f"   📊 Total Backlogs: {backlogs_info.get('total_backlogs', 0)}")
+                            print(f"   🔴 Current Backlogs: {backlogs_info.get('current_backlogs', 0)}")
+                        
+                        # Calculate some statistics
+                        if len(semesters) > 0:
+                            print(f"\n📊 QUICK STATISTICS")
+                            print("=" * 40)
+                            
+                            # Calculate average SGPA
+                            valid_sgpas = [s.get('sgpa', 0) for s in semesters if isinstance(s.get('sgpa'), (int, float)) and s.get('sgpa') > 0]
+                            if valid_sgpas:
+                                avg_sgpa = sum(valid_sgpas) / len(valid_sgpas)
+                                print(f"   📈 Average SGPA: {avg_sgpa:.2f}")
+                            
+                            # Calculate total attendance percentage
+                            total_present = sum(s.get('attendance', {}).get('present', 0) for s in semesters)
+                            total_classes = sum(s.get('attendance', {}).get('total', 0) for s in semesters)
+                            if total_classes > 0:
+                                overall_attendance = (total_present / total_classes) * 100
+                                print(f"   📅 Overall Attendance: {overall_attendance:.1f}%")
+                            
+                            # Show progression
+                            latest_cgpa = None
+                            for semester in reversed(semesters):
+                                if isinstance(semester.get('cgpa'), (int, float)) and semester.get('cgpa') > 0:
+                                    latest_cgpa = semester.get('cgpa')
+                                    break
+                            
+                            if latest_cgpa:
+                                print(f"   🎯 Latest CGPA: {latest_cgpa}")
+                    
+                    else:
+                        print("ℹ️ No semester data found in academic analysis")
+                        print("   This could mean:")
+                        print("   • Academic analysis data is not available")
+                        print("   • The page structure has changed")
+                        print("   • Access permissions may be required")
+                
+                else:
+                    error_data = response.get_json()
+                    print(f"❌ Failed to get academic analysis: {error_data.get('message', 'Unknown error')}")
+                    
+        except Exception as e:
+            print(f"❌ Error getting academic analysis: {e}")
 
     def get_attendance(self):
         """Get attendance information"""
@@ -462,10 +610,11 @@ class ETLabTerminalDirect:
             print("1. Get Profile")
             print("2. Get Exam Results") 
             print("3. Get End Semester Results")
-            print("4. Get Attendance")
-            print("5. Get Timetable")
-            print("6. Check API Status")
-            print("7. Logout")
+            print("4. Get Academic Analysis")
+            print("5. Get Attendance")
+            print("6. Get Timetable")
+            print("7. Check API Status")
+            print("8. Logout")
         else:
             print("🔐 LOGIN REQUIRED")
             print("1. Login to ETLab")
@@ -502,12 +651,14 @@ class ETLabTerminalDirect:
                 elif choice == "3" and self.token:
                     self.get_end_semester_results()
                 elif choice == "4" and self.token:
-                    self.get_attendance()
+                    self.get_academic_analysis()
                 elif choice == "5" and self.token:
-                    self.get_timetable()
+                    self.get_attendance()
                 elif choice == "6" and self.token:
-                    self.check_status()
+                    self.get_timetable()
                 elif choice == "7" and self.token:
+                    self.check_status()
+                elif choice == "8" and self.token:
                     self.logout()
                 else:
                     print("❌ Invalid option. Please try again.")
